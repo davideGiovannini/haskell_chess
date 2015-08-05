@@ -24,13 +24,21 @@ textureSize = 512
 
 -- | Convert our state to a picture.
 renderFunction :: V.Vector Picture -> GameState -> Picture
-renderFunction pics (GameState board selected) = let draw (c, r)   = renderCell (fromPos (r, c)) . texturePiece pics $ M.getElem r c board
-                                                     pieces        = map draw [(r, c) | r <- [1..8], c <- [1..8]]
-                                                     grid          = rectangleWire (8*pieceSize) (8*pieceSize)
-                                                     pieceSelected = renderSelected selected
-                                                     moves         = (\pos -> renderCell (fromPos pos) (color blue $ circleSolid pieceSize) ) <$> maybe [] (movesAvailable board) selected
-                                                 in
-                                                 Pictures (pieces ++ [grid, pieceSelected]++moves)
+renderFunction pics state = let   board         = _board state
+                                  selected      = _selected state
+                                  over          = _over state
+                                  selMoves      = _moves state
+
+                                  draw (c, r)   = renderCell (fromPos (r, c)) . texturePiece pics $ M.getElem r c board
+                                  pieces        = map draw [(r, c) | r <- [1..8], c <- [1..8]]
+                                  grid          = rectangleWire (8*pieceSize) (8*pieceSize)
+                                  pieceSelected = renderSelected selected $  color (withAlpha 0.5 cyan) (rectangleSolid textureSize textureSize)
+                                  pieceOver     = renderSelected over $ color red (rectangleSolid 56 56)
+                                  selPicMoves   = (\pos -> renderCell (fromPos pos) (color blue $ circleSolid pieceSize) ) <$> selMoves
+                                  overMoves     = maybe [] (movesAvailable board) over
+                                  overPicMoves  = (\pos -> renderCell (fromPos pos) (color (withAlpha 0.5 blue) $ circleSolid pieceSize) ) <$> overMoves
+                            in
+                            Pictures (pieces ++ [grid, pieceSelected, pieceOver]++selPicMoves ++ overPicMoves)
 
 
 renderCell :: (Float, Float) -> Picture -> Picture
@@ -53,14 +61,14 @@ texturePiece textures (Just (King White _))   = textures V.! 11
 texturePiece _ _                              = rectangleWire textureSize textureSize
 
 
-renderSelected :: Maybe Piece -> Picture
-renderSelected piece = case piece of
-                           Just (Pawn _ (x, y))   -> render (fromPos (x, y))
-                           Just (Horse _ (x, y))  -> render (fromPos (x, y))
-                           Just (Tower _ (x, y))  -> render (fromPos (x, y))
-                           Just (Bishop _ (x, y)) -> render (fromPos (x, y))
-                           Just (Queen _ (x, y))  -> render (fromPos (x, y))
-                           Just (King _ (x, y))   -> render (fromPos (x, y))
-                           Nothing                -> Blank
-                       where render (x,y) = renderCell (x, y) $ color red $ rectangleSolid 40 40
+renderSelected :: Maybe Piece -> Picture -> Picture
+renderSelected piece selCursor = case piece of
+                                   Just (Pawn _ (x, y))   -> render (fromPos (x, y))
+                                   Just (Horse _ (x, y))  -> render (fromPos (x, y))
+                                   Just (Tower _ (x, y))  -> render (fromPos (x, y))
+                                   Just (Bishop _ (x, y)) -> render (fromPos (x, y))
+                                   Just (Queen _ (x, y))  -> render (fromPos (x, y))
+                                   Just (King _ (x, y))   -> render (fromPos (x, y))
+                                   Nothing                -> Blank
+                               where render (x,y) = renderCell (x, y) selCursor
 

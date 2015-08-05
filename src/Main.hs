@@ -6,7 +6,8 @@ import           Graphics.Gloss.Interface.Pure.Game
 import qualified Data.Matrix                        as M
 import qualified Data.Vector                        as V
 
-import           Data.Maybe                         (fromJust)
+import           Data.Maybe                         (fromJust, isJust,
+                                                     isNothing)
 import           Graphics.Gloss.Juicy               (loadJuicyPNG)
 
 import           Game
@@ -33,12 +34,25 @@ main = do
 handleEvent :: Event -> GameState -> GameState
 handleEvent event state
         -- If the mouse has moved, then extend the current line.
-        | EventMotion (x,y)  <- event
-        = state {_selected = selectPiece (round x, round y) (_board state)}
+        | EventMotion screenPos  <- event
+        = let pos = fromScreenToBoard screenPos
+          in
+          state {_over = selectPiece pos (_board state)}
 
-        {--- Start drawing a new line.-}
-        {-| EventKey (MouseButton LeftButton) Down _  _ <- event-}
-        {-= state & stateColor .~ blue-}
+
+        | EventKey (MouseButton LeftButton) Down _  screenPos <- event
+        = let pos          = fromScreenToBoard screenPos
+              selected     = selectPiece pos (_board state)
+              maybeMoving  = isJust (_selected state) && isNothing selected
+          in
+          if maybeMoving && pos `elem` _moves state
+          then -- Check if I'm trying to mov
+            moveSelected state pos
+          else -- Select A piece
+              state {
+                     _selected = selected,
+                     _moves    = maybe [] (movesAvailable (_board state)) selected
+                    }
 
         {--- Finish drawing a line, and add it to the picture.-}
         {-| EventKey (MouseButton LeftButton) Up _ _       <- event-}
@@ -60,12 +74,16 @@ handleEvent event state
 
 
 selectPiece :: Pos -> Board -> Maybe Piece
-selectPiece (x,y) = if row < 1 || row >8 || col < 1 || col > 8 then const Nothing else  M.getElem row col
-                    where
-                        row = -(div y size - 3) + 1
-                        col = div x size + 5
-                        size = round pieceSize
+selectPiece (row,col) = if row < 1 || row >8 || col < 1 || col > 8 then const Nothing else  M.getElem row col
 
+
+fromScreenToBoard :: (Float, Float) -> Pos
+fromScreenToBoard (x, y) = (row, col)
+                    where
+                        (x', y') = (round x, round y)
+                        row      = -(div y' size - 3) + 1
+                        col      = div x' size + 5
+                        size     = round pieceSize
 
 
 updateFunction :: Float -> GameState -> GameState

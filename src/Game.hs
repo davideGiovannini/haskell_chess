@@ -3,7 +3,7 @@ module Game where
 import           Control.Arrow ((***))
 import           Control.Monad (replicateM)
 import qualified Data.Matrix   as M
-import           Data.Maybe    (isNothing)
+import           Data.Maybe    (fromJust)
 
 type Pos = (Int, Int)
 
@@ -14,6 +14,12 @@ fromPos = fromIntegral *** fromIntegral
 data Player = White
            | Black
            deriving (Show, Eq)
+
+nextPlayer :: Player -> Player
+nextPlayer player = case player of
+                      White -> Black
+                      Black -> White
+
 
 data Piece = Pawn   Player Pos
            | Horse  Player Pos
@@ -50,12 +56,15 @@ _initialBoardGenerator pos@(row, column)
 
 
 data GameState = GameState {
-                            _board    :: Board,
-                            _selected :: Maybe Piece
+                            _board        :: Board,
+                            _selected     :: Maybe Piece,
+                            _moves        :: [Pos],
+                            _over         :: Maybe Piece,
+                            _playerMoving :: Player
                            } deriving Show
 
 initialState :: GameState
-initialState = GameState initialBoard Nothing
+initialState = GameState initialBoard Nothing [] Nothing White
 
 
 
@@ -65,7 +74,7 @@ initialState = GameState initialBoard Nothing
 
 
 movesAvailable :: Board -> Piece -> [Pos]
-movesAvailable board piece = let moves = case piece of
+movesAvailable _ piece = let moves = case piece of
                                             Pawn White (r, c)
                                                     | r == 7      -> [(r-1, c), (r-2, c)]
                                                     | otherwise   -> [(r-1, c)]
@@ -83,12 +92,27 @@ movesAvailable board piece = let moves = case piece of
 
                                             King _ (r, c)        -> [(r+x, c+y) | x <- [-1..1], y <- [-1..1], r/=r+x || c/=c+y ]
                              in
-                             {-filterOccupied . filterOutside $ moves-}
-                             filterOutside $ moves
+                             filterOutside  moves
                              where
                                  filterOutside   = filter (\(x, y) -> x>0 && x <= 8 && y > 0 && y <= 8)
-                                 filterOccupied  = filter (\(x, y) -> isNothing $ M.getElem x y board)
                                  bishopCondition x y = abs x == abs y && x /= 0
                                  towerCondition  x y = (x == 0 || y == 0) && x /=y
+
+
+
+
+moveSelected :: GameState -> Pos -> GameState
+moveSelected state newPs = let board = case fromJust $ _selected state of
+                                           Pawn   player pos -> operation (Pawn player newPs) pos
+                                           Horse  player pos -> operation (Horse player newPs) pos
+                                           Bishop player pos -> operation (Bishop player newPs) pos
+                                           Tower  player pos -> operation (Tower player newPs) pos
+                                           Queen  player pos -> operation (Queen player newPs) pos
+                                           King   player pos -> operation (King player newPs) pos
+                           in
+                           state {_board = board, _selected = Nothing, _moves = [], _playerMoving = nextPlayer (_playerMoving state) }
+                           where -- Move the piece from oldPos to newPs
+                           operation piece p = M.setElem (Just piece) newPs (M.setElem Nothing p $ _board state)
+
 
 
