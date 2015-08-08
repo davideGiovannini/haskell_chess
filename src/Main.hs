@@ -6,10 +6,10 @@ import           Graphics.Gloss.Interface.Pure.Game
 import qualified Data.Matrix                        as M
 import qualified Data.Vector                        as V
 
-import           Data.Maybe                         (fromJust, isJust,
-                                                     isNothing)
+import           Data.Maybe                         (fromJust, isJust)
 import           Graphics.Gloss.Juicy               (loadJuicyPNG)
 
+import           Control.Monad                      (mfilter)
 import           Game
 import           Rendering
 
@@ -43,15 +43,18 @@ handleEvent event state
         | EventKey (MouseButton LeftButton) Down _  screenPos <- event
         = let pos          = fromScreenToBoard screenPos
               selected     = selectPiece pos (_board state)
-              maybeMoving  = isJust (_selected state) && isNothing selected
+              playerMoving = _playerMoving state
+              maybeMoving  = isJust (_selected state)
           in
           if maybeMoving && pos `elem` _moves state
           then -- Check if I'm trying to mov
             moveSelected state pos
           else -- Select A piece
+              let sel = mfilter (\piece -> _owner piece == playerMoving) selected
+              in
               state {
-                     _selected = selected,
-                     _moves    = maybe [] (movesAvailable (_board state)) selected
+                     _selected = sel,
+                     _moves    = maybe [] (movesAvailable (_board state)) sel
                     }
 
         {--- Finish drawing a line, and add it to the picture.-}
