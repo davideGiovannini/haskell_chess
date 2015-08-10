@@ -61,20 +61,6 @@ handleEvent event state
         | EventKey (SpecialKey KeySpace) Down _ _ <- event, _gameEnded state
         = state {_board= initialBoard, _gameEnded = False}
 
-        {--- Finish drawing a line, and add it to the picture.-}
-        {-| EventKey (MouseButton LeftButton) Up _ _       <- event-}
-        {-= state & stateColor .~ black-}
-
-        {--- Move-}
-        {-| EventKey (SpecialKey key) Up _ _ <- event-}
-        {-=-}
-           {-case key of-}
-                    {-KeyLeft  -> state & stateTranslation._1 -~ 80-}
-                    {-KeyRight -> state & stateTranslation._1 +~ 80-}
-                    {-KeyUp    -> state & stateTranslation._2 +~ 80-}
-                    {-KeyDown  -> state & stateTranslation._2 -~ 80-}
-                    {-_ -> state-}
-
 
         | otherwise
         = state
@@ -96,7 +82,7 @@ fromScreenToBoard (x, y) = (row, col)
 updateFunction :: Float -> GameState -> GameState
 updateFunction _ state = if length (getKings board) < 2
                          then state {_gameEnded = True}
-                         else state {_board = promotePawns $ _board state}
+                         else state {_board = promotePawns board}
                          where board = _board state
 
 

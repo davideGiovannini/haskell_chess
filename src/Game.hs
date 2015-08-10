@@ -4,7 +4,8 @@ import           Control.Arrow ((***))
 import           Control.Monad (join, replicateM)
 import           Data.List     (foldl')
 import qualified Data.Matrix   as M
-import           Data.Maybe    (fromJust, isJust, maybeToList)
+import           Data.Maybe    (fromJust, isNothing, maybeToList)
+import           Data.Monoid   (First (First), getFirst)
 
 type Pos = (Int, Int)
 
@@ -34,7 +35,6 @@ data Piece = Piece {
                     _owner :: Player,
                     _pos   :: Pos
                    } deriving (Show, Eq)
-
 
 
 type Board = M.Matrix (Maybe Piece)
@@ -82,22 +82,21 @@ initialState = GameState initialBoard Nothing [] Nothing White False
 movesAvailable :: Board -> Piece -> [Pos]
 movesAvailable board (Piece t o (r, c)) =
             let posOfElem (x,y) = maybe [] ((:[])._pos)  $ join $ M.safeGet x y board
-                freePos pos@(x, y)  = if isJust.join $ M.safeGet x y board then [] else [pos]
                 moves = case t of
                       Pawn
-                          | r == 7 && o == White -> freePos(r-1, c) ++ freePos(r-2, c) ++ posOfElem (r-1, c +1) ++ posOfElem (r-1,c-1)
-                          | r == 2 && o == Black -> freePos(r+1, c) ++ freePos(r+2, c) ++ posOfElem (r+1, c +1) ++ posOfElem (r+1,c-1)
-                          | o == White           -> freePos(r-1, c) ++ posOfElem (r-1, c +1) ++ posOfElem (r-1,c-1)
-                          | o == Black           -> freePos(r+1, c) ++ posOfElem (r+1, c +1) ++ posOfElem (r+1,c-1)
+                          | r == 7 && o == White -> take 2 (allEmpty down) ++ posOfElem (r-1, c +1) ++ posOfElem (r-1,c-1)
+                          | r == 2 && o == Black -> take 2 (allEmpty up)   ++ posOfElem (r+1, c +1) ++ posOfElem (r+1,c-1)
+                          | o == White           -> take 1 (allEmpty down) ++ posOfElem (r-1, c +1) ++ posOfElem (r-1,c-1)
+                          | o == Black           -> take 1 (allEmpty up)   ++ posOfElem (r+1, c +1) ++ posOfElem (r+1,c-1)
                           | otherwise            -> []
 
                       Horse  -> [(r+x, c+y) | [x, y] <- replicateM 2 [1, -1, 2, -2], abs x /= abs y]
 
-                      Bishop -> [(r+x, c+y) | x <- [-8..8], y <- [-8..8], bishopCondition x y]
+                      Bishop -> untilFirst upleft ++ untilFirst upright ++ untilFirst downleft ++ untilFirst downright
 
-                      Tower  -> [(r+x, c+y) | x <- [-8..7], y <- [-8..7],  towerCondition x y]
+                      Tower  -> untilFirst left ++ untilFirst right ++ untilFirst up ++ untilFirst down
 
-                      Queen  -> [(r+x, c+y) | x <- [-8..8], y <- [-8..8], bishopCondition x y || towerCondition x y]
+                      Queen  -> foldMap untilFirst [left, right, up, down, upleft, upright, downleft, downright]
 
                       King   -> [(r+x, c+y) | x <- [-1..1], y <- [-1..1], r/=r+x || c/=c+y ]
             in
@@ -105,8 +104,20 @@ movesAvailable board (Piece t o (r, c)) =
             where
                 filterOutside       = filter (\(x, y) -> x>0 && x <= 8 && y > 0 && y <= 8)
                 filterFriendlyFire  = filter (\(x, y) -> maybe True (\piece -> _owner piece /= o)$M.getElem x y board)
-                bishopCondition x y = abs x == abs y && x /= 0
-                towerCondition  x y = (x == 0 || y == 0) && x /=y
+
+                left   = [(r, c-y) | y <- [1..8]]
+                right  = [(r, c+y) | y <- [1..8]]
+                up     = [(r+y, c) | y <- [1..8]]
+                down   = [(r-y, c) | y <- [1..8]]
+                upleft    = [(r+y, c-y) | y <- [1..8]]
+                downright = [(r-y, c+y) | y <- [1..8]]
+                downleft  = [(r-y, c-y) | y <- [1..8]]
+                upright   = [(r+y, c+y) | y <- [1..8]]
+
+                firstPiece dir = getFirst $ foldMap First $ map (\(x,y) -> join $ M.safeGet x y board) dir
+                allEmpty = takeWhile (\(x,y) -> isNothing $ join (M.safeGet x y board))
+                untilFirst dir = allEmpty dir ++ maybeToList (_pos <$> firstPiece dir)
+
 
 
 
