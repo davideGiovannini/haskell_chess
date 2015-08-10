@@ -43,8 +43,9 @@ renderFunction pics state = let   board         = _board state
                                   selPicMoves   = (\pos -> renderCell (fromPos pos) (color blue $ circleSolid pieceSize) ) <$> selMoves
                                   overMoves     = maybe [] (movesAvailable board) over
                                   overPicMoves  = (\pos -> renderCell (fromPos pos) (color (withAlpha 0.5 blue) $ circleSolid pieceSize) ) <$> overMoves
+                                  gameOver      = translate (-365) 0 (if _gameEnded state then Text "Game Over" else Blank)
                             in
-                            Pictures (background ++ pieces ++ [grid, pieceSelected, pieceOver]++selPicMoves ++ overPicMoves)
+                            Pictures (background ++ pieces ++ [grid, pieceSelected, pieceOver]++selPicMoves ++ overPicMoves ++ [gameOver])
 
 
 renderCell :: (Float, Float) -> Picture -> Picture

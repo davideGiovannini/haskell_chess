@@ -1,9 +1,10 @@
 module Game where
 
 import           Control.Arrow ((***))
-import           Control.Monad (replicateM)
+import           Control.Monad (join, replicateM)
+import           Data.List     (foldl')
 import qualified Data.Matrix   as M
-import           Data.Maybe    (fromJust)
+import           Data.Maybe    (fromJust, isJust, maybeToList)
 
 type Pos = (Int, Int)
 
@@ -64,11 +65,12 @@ data GameState = GameState {
                             _selected     :: Maybe Piece,
                             _moves        :: [Pos],
                             _over         :: Maybe Piece,
-                            _playerMoving :: Player
+                            _playerMoving :: Player,
+                            _gameEnded    :: Bool
                            } deriving Show
 
 initialState :: GameState
-initialState = GameState initialBoard Nothing [] Nothing White
+initialState = GameState initialBoard Nothing [] Nothing White False
 
 
 
@@ -78,30 +80,35 @@ initialState = GameState initialBoard Nothing [] Nothing White
 
 
 movesAvailable :: Board -> Piece -> [Pos]
-movesAvailable board (Piece t o (r, c)) = let moves = case t of
-                                                    Pawn
-                                                        | r == 7 && o == White  -> [(r-1, c), (r-2, c)]
-                                                        | r == 2 && o == Black  -> [(r+1, c), (r+2, c)]
-                                                        | o == White            -> [(r-1, c)]
-                                                        | o == Black            -> [(r+1, c)]
-                                                        | otherwise             -> []
+movesAvailable board (Piece t o (r, c)) =
+            let posOfElem (x,y) = maybe [] ((:[])._pos)  $ join $ M.safeGet x y board
+                freePos pos@(x, y)  = if isJust.join $ M.safeGet x y board then [] else [pos]
+                moves = case t of
+                      Pawn
+                          | r == 7 && o == White -> freePos(r-1, c) ++ freePos(r-2, c) ++ posOfElem (r-1, c +1) ++ posOfElem (r-1,c-1)
+                          | r == 2 && o == Black -> freePos(r+1, c) ++ freePos(r+2, c) ++ posOfElem (r+1, c +1) ++ posOfElem (r+1,c-1)
+                          | o == White           -> freePos(r-1, c) ++ posOfElem (r-1, c +1) ++ posOfElem (r-1,c-1)
+                          | o == Black           -> freePos(r+1, c) ++ posOfElem (r+1, c +1) ++ posOfElem (r+1,c-1)
+                          | otherwise            -> []
 
-                                                    Horse  -> [(r+x, c+y) | [x, y] <- replicateM 2 [1, -1, 2, -2], abs x /= abs y]
+                      Horse  -> [(r+x, c+y) | [x, y] <- replicateM 2 [1, -1, 2, -2], abs x /= abs y]
 
-                                                    Bishop -> [(r+x, c+y) | x <- [-8..8], y <- [-8..8], bishopCondition x y]
+                      Bishop -> [(r+x, c+y) | x <- [-8..8], y <- [-8..8], bishopCondition x y]
 
-                                                    Tower  -> [(r+x, c+y) | x <- [-8..7], y <- [-8..7],  towerCondition x y]
+                      Tower  -> [(r+x, c+y) | x <- [-8..7], y <- [-8..7],  towerCondition x y]
 
-                                                    Queen  -> [(r+x, c+y) | x <- [-8..8], y <- [-8..8], bishopCondition x y || towerCondition x y]
+                      Queen  -> [(r+x, c+y) | x <- [-8..8], y <- [-8..8], bishopCondition x y || towerCondition x y]
 
-                                                    King   -> [(r+x, c+y) | x <- [-1..1], y <- [-1..1], r/=r+x || c/=c+y ]
-                                         in
-                                         filterFriendlyFire.filterOutside $  moves
-                                         where
-                                             filterOutside       = filter (\(x, y) -> x>0 && x <= 8 && y > 0 && y <= 8)
-                                             filterFriendlyFire  = filter (\(x, y) -> maybe True (\piece -> _owner piece /= o)$M.getElem x y board)
-                                             bishopCondition x y = abs x == abs y && x /= 0
-                                             towerCondition  x y = (x == 0 || y == 0) && x /=y
+                      King   -> [(r+x, c+y) | x <- [-1..1], y <- [-1..1], r/=r+x || c/=c+y ]
+            in
+            filterFriendlyFire.filterOutside $  moves
+            where
+                filterOutside       = filter (\(x, y) -> x>0 && x <= 8 && y > 0 && y <= 8)
+                filterFriendlyFire  = filter (\(x, y) -> maybe True (\piece -> _owner piece /= o)$M.getElem x y board)
+                bishopCondition x y = abs x == abs y && x /= 0
+                towerCondition  x y = (x == 0 || y == 0) && x /=y
+
+
 
 
 
@@ -114,5 +121,22 @@ moveSelected state newPs = let board = case fromJust $ _selected state of
                            where -- Move the piece from oldPos to newPs
                            operation piece p = M.setElem (Just piece) newPs (M.setElem Nothing p $ _board state)
 
+
+
+getKings :: Board -> [Piece]
+getKings = foldMap ( filter ((==King)._role).maybeToList)
+
+
+findPiece :: Role -> Player -> Board -> [Piece]
+findPiece role player = foldMap (filter condition.maybeToList)
+                        where
+                             condition = (&&) <$> (==role)._role <*> (==player)._owner
+
+promotePawns :: Board -> Board
+promotePawns board = foldl' (\b q -> M.setElem (Just q) (_pos q) b ) board queens
+        where pawns      = foldMap ( filter condition.maybeToList) board
+              condition  = (&&) <$> (==Pawn)._role <*> onEdge.fst._pos
+              onEdge     = (||) <$> (==1) <*> (==8)
+              queens     = map (\p -> p {_role = Queen}) pawns
 
 

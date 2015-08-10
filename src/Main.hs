@@ -40,7 +40,7 @@ handleEvent event state
           state {_over = selectPiece pos (_board state)}
 
 
-        | EventKey (MouseButton LeftButton) Down _  screenPos <- event
+        | EventKey (MouseButton LeftButton) Down _  screenPos <- event, not (_gameEnded state)
         = let pos          = fromScreenToBoard screenPos
               selected     = selectPiece pos (_board state)
               playerMoving = _playerMoving state
@@ -56,6 +56,10 @@ handleEvent event state
                      _selected = sel,
                      _moves    = maybe [] (movesAvailable (_board state)) sel
                     }
+
+
+        | EventKey (SpecialKey KeySpace) Down _ _ <- event, _gameEnded state
+        = state {_board= initialBoard, _gameEnded = False}
 
         {--- Finish drawing a line, and add it to the picture.-}
         {-| EventKey (MouseButton LeftButton) Up _ _       <- event-}
@@ -90,5 +94,9 @@ fromScreenToBoard (x, y) = (row, col)
 
 
 updateFunction :: Float -> GameState -> GameState
-updateFunction _ = id
+updateFunction _ state = if length (getKings board) < 2
+                         then state {_gameEnded = True}
+                         else state {_board = promotePawns $ _board state}
+                         where board = _board state
+
 
