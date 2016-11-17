@@ -7,7 +7,7 @@ import qualified Data.Matrix                        as M
 import qualified Data.Vector                        as V
 
 import           Data.Maybe                         (fromJust, isJust)
-import           Graphics.Gloss.Juicy               (loadJuicyPNG)
+import           ImageLoading                       (loadJuicyPNG)
 
 import           Control.Monad                      (mfilter)
 import           Game
@@ -84,5 +84,3 @@ updateFunction _ state = if length (getKings board) < 2
                          then state {_gameEnded = True}
                          else state {_board = promotePawns board}
                          where board = _board state
-
-

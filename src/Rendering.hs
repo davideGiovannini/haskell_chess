@@ -73,4 +73,3 @@ texturePiece _ _                              = rectangleWire textureSize textur
 renderSelected :: Maybe Piece -> Picture -> Picture
 renderSelected piece selCursor = maybe Blank (render.fromPos._pos ) piece
                                  where render (x,y) = renderCell (x, y) selCursor
-

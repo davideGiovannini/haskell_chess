@@ -149,5 +149,3 @@ promotePawns board = foldl' (\b q -> M.setElem (Just q) (_pos q) b ) board queen
               condition  = (&&) <$> (==Pawn)._role <*> onEdge.fst._pos
               onEdge     = (||) <$> (==1) <*> (==8)
               queens     = map (\p -> p {_role = Queen}) pawns
-
-
