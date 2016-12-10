@@ -20,11 +20,11 @@ executable HaskellChess
   -- other-modules:
   -- other-extensions:
   ghc-options:         -Wall -O2 -threaded
-  build-depends:       base >=4.9,
-                       gloss,
-                       matrix,
-                       vector,
-                       JuicyPixels
+  build-depends:       base >=4.8,
+                       gloss == 1.10.2.3,
+                       matrix == 0.3.5.0,
+                       vector == 0.11.0.0,
+                       JuicyPixels == 3.2.8
 
   hs-source-dirs:      src
   default-language:    Haskell2010
@@ -36,6 +36,6 @@ test-suite hlint
 
   build-depends:
     base,
-    hlint >= 1.17
+    hlint >= 1.9
 
   default-language: Haskell2010

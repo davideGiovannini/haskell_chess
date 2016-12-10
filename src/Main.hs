@@ -21,7 +21,7 @@ import           Rendering
 
 main :: IO ()
 main = do
-    assets <- sequence $ fmap  loadJuicyPNG texturesFiles
+    assets <- sequence (loadJuicyPNG <$> texturesFiles)
     play (InWindow "Draw" (1024, 1024) (0,0))
         white 100 initialState
         (renderFunction $ vectorFrom assets) handleEvent updateFunction
